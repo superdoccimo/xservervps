@@ -11,6 +11,7 @@ Xserver無料VPSの「2日ごと手動更新」を自動化し、永続利用を
 2025年7月にリリースされたXserver無料VPSは高性能（4GB RAM、3コアCPU）でありながら、2日ごとの手動更新が必要という制約があります。このスクリプトはSeleniumを使用してブラウザ操作を自動化し、更新処理を完全自動化します。
 
 ### 💰 節約効果
+
 - **Xserver VPS 6GBプラン**: 月額1,190円
 - **無料VPS 4GBプラン**: 月額0円（手動更新）
 - **年間節約額**: 約14,000円
@@ -33,27 +34,55 @@ Xserver無料VPSの「2日ごと手動更新」を自動化し、永続利用を
 ## 🛠️ インストール
 
 ### 1. リポジトリをクローン
+
 ```bash
-git clone https://github.com/your-username/xserver-free-vps-renewer.git
-cd xserver-free-vps-renewer
-2. 必要なパッケージをインストール
-bashpip install -r requirements.txt
-3. ChromeDriverをインストール
-bash# Ubuntu/Debian
+git clone https://github.com/superdoccimo/xservervps.git
+cd xservervps
+```
+
+### 2. 必要なパッケージをインストール
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. ChromeDriverをインストール
+
+**Ubuntu/Debian**
+
+```bash
 sudo apt-get update
 sudo apt-get install chromium-driver
+```
 
-# macOS (Homebrew)
+**macOS (Homebrew)**
+
+```bash
 brew install chromedriver
+```
 
-# Windows
-# ChromeDriverを公式サイトからダウンロードしてPATHに追加
-⚙️ 設定
-スクリプト内の以下の部分を編集してください：
-python# ▼ 設定項目（必ず入力）
+**Windows**
+
+[ChromeDriverの公式サイト](https://chromedriver.chromium.org/downloads)からダウンロードして、PATHの通ったディレクトリに配置してください。
+
+## 📖 詳細
+
+本スクリプトの詳しい解説や背景については、以下の記事をご覧ください。
+
+- **解説記事**: [Xserver無料VPSの「2日更新ルール」を自動化して永続利用する方法](https://minokamo.tokyo/2025/07/13/9135/)
+
+近日中に、設定方法や動作の様子を解説するYouTube動画も公開予定です。お楽しみに！
+
+## ⚙️ 設定
+
+スクリプト内の以下の部分を、ご自身の情報に合わせて編集してください。
+
+```python
+# ▼ 設定項目（必ず入力）
 USERNAME = "your_username@example.com"  # ← 実際のユーザー名に変更
 PASSWORD = "your_password"              # ← 実際のパスワードに変更
 SERVER_ID = "40090849"                  # ← 実際のサーバーIDに変更
 
 # ▼ 利用開始日（最後に更新した日時を正確に記入）
-last_update_date = datetime(2025, 7, 12, 8, 20)  # 例: 7月12日08:20に更新実行# xservervps
+last_update_date = datetime(2025, 7, 12, 8, 20)  # 例: 7月12日08:20に更新実行
+```
