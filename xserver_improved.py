@@ -34,6 +34,16 @@ except ImportError:
     print("⚠️  anthropic パッケージがインストールされていません。")
     print("💡 Claude解析機能を使用するには: pip install anthropic")
 
+# Claude Code CLI統合のimport
+try:
+    from claude_code_integration import enhanced_solve_captcha_with_claude_code
+    CLAUDE_CODE_AVAILABLE = True
+    print("✅ Claude Code CLI 統合が利用可能です。")
+except ImportError:
+    CLAUDE_CODE_AVAILABLE = False
+    print("⚠️  claude_code_integration.py が見つかりません。")
+    print("💡 Claude Code CLI機能を使用するには claude_code_integration.py を同じフォルダに配置してください。")
+
 # Claude API設定
 CLAUDE_API_KEY = os.getenv("ANTHROPIC_API_KEY")  # 環境変数から取得
 if CLAUDE_AVAILABLE and not CLAUDE_API_KEY:
@@ -455,6 +465,11 @@ def get_expiry_date_from_page(driver, wait):
 def should_update(expiry_date, threshold_hours=12):
     """
     更新を実行すべきかを判定
+    
+    Xserver VPSの仕様:
+    - 2日間の利用期限
+    - 更新時は「残り時間 + 2日間」で期限が延長される
+    - 24時間前には更新できるようになる
     """
     if not expiry_date:
         print("⚠️  利用期限が不明のため、安全のため更新を実行します。")
@@ -469,17 +484,43 @@ def should_update(expiry_date, threshold_hours=12):
     print(f"⏰ 期限まで: {time_until_expiry}")
     print(f"🎯 更新閾値: {threshold_hours}時間前")
     
+    # 期限が切れている場合は即座に更新
+    if time_until_expiry <= timedelta(0):
+        print("❌ 期限が切れています！即座に更新を実行します。")
+        return True
+    
+    # 24時間以内なら更新可能（Xserver VPSの仕様）
+    if time_until_expiry <= timedelta(hours=24):
+        print("✅ 24時間以内です。更新を実行します。")
+        print(f"💡 更新後の予想期限: {(expiry_date + timedelta(days=2)).strftime('%Y-%m-%d %H:%M')}")
+        return True
+    
+    # 設定された閾値に達している場合
     if time_until_expiry <= threshold:
         print("✅ 更新時期に達しました。更新を実行します。")
+        
+        # 更新後の予想期限を表示（残り時間 + 2日間）
+        expected_new_expiry = expiry_date + timedelta(days=2)
+        print(f"💡 更新後の予想期限: {expected_new_expiry.strftime('%Y-%m-%d %H:%M')}")
+        
+        # 次回の最適な更新時期を計算
+        next_optimal_update = expected_new_expiry - timedelta(hours=threshold_hours)
+        print(f"📅 次回更新推奨時期: {next_optimal_update.strftime('%Y-%m-%d %H:%M')}")
+        
         return True
     else:
         next_check = expiry_date - threshold
         print(f"⏳ まだ更新時期ではありません。次回実行予定: {next_check.strftime('%Y-%m-%d %H:%M')} 以降")
+        
+        # 24時間前になったら更新可能になることを表示
+        update_available_time = expiry_date - timedelta(hours=24)
+        print(f"📋 更新可能時期: {update_available_time.strftime('%Y-%m-%d %H:%M')} 以降")
+        
         return False
 
 def main():
-    print("🚀 Xserver VPS 自動更新スクリプト v3.0 を開始します")
-    print("📋 新機能: OCR失敗時にClaude APIで画像認証を自動解析")
+    print("🚀 Xserver VPS 自動更新スクリプト v3.1 を開始します")
+    print("📋 新機能: OCR → Claude API → Claude Code CLI の3段階認証解析")
     
     # ▼ Selenium操作開始
     options = webdriver.ChromeOptions()
@@ -645,7 +686,16 @@ def main():
                             print(f"🎯 Claudeで認識したテキスト: '{captcha_text}'")
                             captcha_solved = True
                     
-                    # 3. 認識が成功した場合、自動入力を実行
+                    # 3. Claude APIも失敗した場合、Claude Code CLIを試行
+                    if not captcha_solved and CLAUDE_CODE_AVAILABLE:
+                        print("🔄 Claude APIも失敗しました。Claude Code CLIで解析を試行します...")
+                        captcha_text = enhanced_solve_captcha_with_claude_code(captcha_image_path)
+                        
+                        if captcha_text and len(captcha_text) >= 3:  # 最低3文字以上
+                            print(f"🎯 Claude Code CLIで認識したテキスト: '{captcha_text}'")
+                            captcha_solved = True
+                    
+                    # 4. 認識が成功した場合、自動入力を実行
                     if captcha_solved and captcha_text:
                         # 入力フィールドにテキストを入力
                         captcha_input.clear()
@@ -694,7 +744,7 @@ def main():
                             print("⚠️  送信ボタンが見つかりませんでした。")
                             captcha_solved = False
                     else:
-                        print("❌ OCRとClaude APIの両方で文字認識に失敗しました。")
+                        print("❌ OCR、Claude API、Claude Code CLIの全てで文字認識に失敗しました。")
                 else:
                     print("❌ 画像認証の画像を抽出できませんでした。")
                 
