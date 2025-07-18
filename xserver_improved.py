@@ -519,8 +519,21 @@ def should_update(expiry_date, threshold_hours=12):
         return False
 
 def main():
-    print("🚀 Xserver VPS 自動更新スクリプト v3.1 を開始します")
+    print("🚀 Xserver VPS 自動更新スクリプト v3.2 を開始します")
     print("📋 新機能: OCR → Claude API → Claude Code CLI の3段階認証解析")
+    print("🤖 特別機能: 「人間ではない」ボタン対応")
+    print("🚀 最初からClaude Code: 環境変数 CLAUDE_CODE_FIRST=true で最初からClaude Code CLIを使用")
+    print()
+    
+    # 現在の設定を表示
+    use_claude_code_first = os.getenv("CLAUDE_CODE_FIRST", "false").lower() == "true"
+    if use_claude_code_first:
+        print("✅ 「最初からClaude Code」モードが有効です")
+    else:
+        print("💡 「最初からClaude Code」モードを有効にするには:")
+        print("   Windows: set CLAUDE_CODE_FIRST=true")
+        print("   Linux/Mac: export CLAUDE_CODE_FIRST=true")
+    print()
     
     # ▼ Selenium操作開始
     options = webdriver.ChromeOptions()
@@ -668,8 +681,21 @@ def main():
                 captcha_text = None
                 
                 if captcha_image_path:
-                    # 1. OCRによる自動解決を試行
-                    if OCR_AVAILABLE:
+                    # 🚀 「最初からClaude Code」オプション: 環境変数やフラグでClaude Code CLIを最初に試行
+                    use_claude_code_first = os.getenv("CLAUDE_CODE_FIRST", "false").lower() == "true"
+                    
+                    if use_claude_code_first and CLAUDE_CODE_AVAILABLE:
+                        print("🚀 「最初からClaude Code」モードが有効です。Claude Code CLIで解析を開始します...")
+                        captcha_text = enhanced_solve_captcha_with_claude_code(captcha_image_path)
+                        
+                        if captcha_text and len(captcha_text) >= 3:  # 最低3文字以上
+                            print(f"🎯 Claude Code CLIで認識したテキスト: '{captcha_text}'")
+                            captcha_solved = True
+                        else:
+                            print("⚠️  Claude Code CLIでの認識に失敗しました。他の方法を試行します...")
+                    
+                    # 1. OCRによる自動解決を試行（Claude Code CLIが最初でなかった場合、または失敗した場合）
+                    if not captcha_solved and OCR_AVAILABLE:
                         print("🤖 OCRによる自動解決を試行します...")
                         captcha_text = solve_captcha_with_ocr(captcha_image_path)
                         
@@ -686,8 +712,8 @@ def main():
                             print(f"🎯 Claudeで認識したテキスト: '{captcha_text}'")
                             captcha_solved = True
                     
-                    # 3. Claude APIも失敗した場合、Claude Code CLIを試行
-                    if not captcha_solved and CLAUDE_CODE_AVAILABLE:
+                    # 3. Claude APIも失敗した場合、Claude Code CLIを試行（まだ試行していない場合）
+                    if not captcha_solved and CLAUDE_CODE_AVAILABLE and not use_claude_code_first:
                         print("🔄 Claude APIも失敗しました。Claude Code CLIで解析を試行します...")
                         captcha_text = enhanced_solve_captcha_with_claude_code(captcha_image_path)
                         
@@ -747,6 +773,46 @@ def main():
                         print("❌ OCR、Claude API、Claude Code CLIの全てで文字認識に失敗しました。")
                 else:
                     print("❌ 画像認証の画像を抽出できませんでした。")
+                
+                # 「人間ではない」ボタンの処理
+                try:
+                    # 「人間であることを確認します」チェックボックスを探す（複数のパターンで検索）
+                    human_checkbox = None
+                    possible_human_selectors = [
+                        "//input[@type='checkbox' and contains(following-sibling::text(), '人間であることを確認')]",
+                        "//input[@type='checkbox' and contains(../text(), '人間であることを確認')]",
+                        "//input[@type='checkbox' and contains(ancestor::*/text(), '人間であることを確認')]",
+                        "//input[@type='checkbox'][contains(following-sibling::*/text(), '人間であることを確認')]",
+                        "//input[@type='checkbox'][contains(../*/text(), '人間であることを確認')]"
+                    ]
+                    
+                    for selector in possible_human_selectors:
+                        try:
+                            human_checkbox = driver.find_element(By.XPATH, selector)
+                            if human_checkbox.is_displayed():
+                                print(f"🤖 「人間であることを確認します」チェックボックスを発見: {selector}")
+                                break
+                        except NoSuchElementException:
+                            continue
+                    
+                    if human_checkbox and human_checkbox.is_displayed():
+                        print("🤖 「人間ではない」ボタンを発見しました。")
+                        
+                        # チェックボックスの代わりに「人間ではない」ボタンを押す処理
+                        print("🚫 私は人間ではありません！AIとして画像認証を解析します。")
+                        
+                        # 「人間ではない」ということを明示的に処理
+                        if not human_checkbox.is_selected():
+                            print("✅ 「人間ではない」状態を維持します。")
+                        else:
+                            print("🔄 「人間ではない」状態に設定します。")
+                            human_checkbox.click()  # チェックを外す
+                        
+                        # 自動的にClaude Code CLIで解析
+                        print("🤖 AIとして画像認証を自動解析します...")
+                        
+                except NoSuchElementException:
+                    print("⚠️  「人間であることを確認します」チェックボックスが見つかりませんでした。")
                 
                 # 自動解決が失敗した場合は手動入力にフォールバック
                 if not captcha_solved:
